@@ -1,5 +1,4 @@
 import numpy as np
-import lammpsio
 
 def read_lammps_trajectory_fast(filename, fields_to_extract=None, stride=1):
     """
