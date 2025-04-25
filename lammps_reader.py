@@ -64,6 +64,34 @@ def read_lammps_trajectory_fast(filename, fields_to_extract=None, stride=1):
     return frames, np.array(timesteps), box_bounds
 
 
+#convert read trajectory information to numpy arrays
+
+def convert_traj(frames,box_bounds,num_part,traj_size,x_clean,y_clean,z_clean,m_clean,box_array,t_array):
+    for i in range(0,traj_size):
+        for j in range(0,num_part):
+            x_clean[i][j][0]=frames[i][j]["id"]#assign particle #
+            x_clean[i][j][1]=frames[i][j]["type"]#assign particle type
+            x_clean[i][j][2]=frames[i][j]["x"]#assign coordinate
+
+            y_clean[i][j][0]=frames[i][j]["id"]#assign particle #
+            y_clean[i][j][1]=frames[i][j]["type"]#assign particle type
+            y_clean[i][j][2]=frames[i][j]["y"]#assign coordinate
+
+            z_clean[i][j][0]=frames[i][j]["id"]#assign particle #
+            z_clean[i][j][1]=frames[i][j]["type"]#assign particle type
+            z_clean[i][j][2]=frames[i][j]["z"]#assign coordinate
+
+            m_clean[i][j][0]=frames[i][j]["id"]#assign particle #
+            m_clean[i][j][1]=frames[i][j]["type"]#assign particle type
+            m_clean[i][j][2]=frames[i][j]["mass"]#assign mass
+
+        box_array[i][0]= np.sqrt((box_bounds[i][0][1]-box_bounds[0][0][0])**2)
+        box_array[i][1]= np.sqrt((box_bounds[i][1][1]-box_bounds[0][1][0])**2)
+        box_array[i][2]= np.sqrt((box_bounds[i][2][1]-box_bounds[0][2][0])**2)
+        t_array[i]=i
+    
+    return (x_clean, y_clean, z_clean, m_clean, box_array, t_array)    
+ 
 #function to check that molecule is not broken over pbc, otherwise com coordinates are wrong
 def check_pbc(x_ref,y_ref,z_ref,x,y,z,box_array):
     dist=np.sqrt((x-x_ref)**2+(y-y_ref)**2+(z-z_ref)**2)
