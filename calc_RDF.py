@@ -24,6 +24,7 @@ stride=100
 #read trajectory
 frames,ts,box_bounds=lammps_reader.read_lammps_trajectory_fast("../dump_EC_LiPF6_MACE_1.lammpstrj",stride=stride)
 
+#convert read information to numpy arrays
 t_array=np.zeros(int(molecular_system["n_frames"]/stride)) # store frame number
 box_array=np.zeros((int(molecular_system["n_frames"]/stride),3)) #contains side length of cubic box (assumes that in lammps box dimension starts at 0)
 x_clean=np.zeros((int(molecular_system["n_frames"]/stride),molecular_system["n_part"],3)) # store per frame particle#, particle type and x-coordinate
@@ -32,8 +33,8 @@ z_clean=np.zeros((int(molecular_system["n_frames"]/stride),molecular_system["n_p
 m_clean=np.zeros((int(molecular_system["n_frames"]/stride),molecular_system["n_part"],3)) # store per frame particle#, particle type and mass
 
 traj_size=int(molecular_system["n_frames"]/stride)
-print(traj_size)
 num_part=int(molecular_system["n_part"])
+
 x_clean,y_clean,z_clean,m_clean,box_array,t_array=lammps_reader.convert_traj(frames,box_bounds,num_part,traj_size,x_clean,y_clean,z_clean,m_clean,box_array,t_array)
 
 #compute center of mass coordinates for all molecules

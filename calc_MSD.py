@@ -33,7 +33,6 @@ z_clean=np.zeros((int(molecular_system["n_frames"]/stride),molecular_system["n_p
 m_clean=np.zeros((int(molecular_system["n_frames"]/stride),molecular_system["n_part"],3)) # store per frame particle#, particle type and mass
 
 traj_size=int(molecular_system["n_frames"]/stride)
-print(traj_size)
 num_part=int(molecular_system["n_part"])
 x_clean,y_clean,z_clean,m_clean,box_array,t_array=lammps_reader.convert_traj(frames,box_bounds,num_part,traj_size,x_clean,y_clean,z_clean,m_clean,box_array,t_array)
 
