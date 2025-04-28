@@ -4,7 +4,7 @@ import os
 import numpy as np
 import lammps_reader
 import calc_COM
-from MDAnalysis.analysis.distances import *
+import RDF_utils
 import math
 
 #anything molecule specfic e.g. number of atoms per molecule, atom type ID in molecule etc. requires same order as in lammps data file
@@ -24,7 +24,6 @@ stride=100
 #read trajectory
 frames,ts,box_bounds=lammps_reader.read_lammps_trajectory_fast("../dump_EC_LiPF6_MACE_1.lammpstrj",stride=stride)
 
-#convert read information to numpy arrays
 t_array=np.zeros(int(molecular_system["n_frames"]/stride)) # store frame number
 box_array=np.zeros((int(molecular_system["n_frames"]/stride),3)) #contains side length of cubic box (assumes that in lammps box dimension starts at 0)
 x_clean=np.zeros((int(molecular_system["n_frames"]/stride),molecular_system["n_part"],3)) # store per frame particle#, particle type and x-coordinate
@@ -33,8 +32,8 @@ z_clean=np.zeros((int(molecular_system["n_frames"]/stride),molecular_system["n_p
 m_clean=np.zeros((int(molecular_system["n_frames"]/stride),molecular_system["n_part"],3)) # store per frame particle#, particle type and mass
 
 traj_size=int(molecular_system["n_frames"]/stride)
+print(traj_size)
 num_part=int(molecular_system["n_part"])
-
 x_clean,y_clean,z_clean,m_clean,box_array,t_array=lammps_reader.convert_traj(frames,box_bounds,num_part,traj_size,x_clean,y_clean,z_clean,m_clean,box_array,t_array)
 
 #compute center of mass coordinates for all molecules
@@ -63,37 +62,13 @@ n_type=molecular_system["n_molecule_types"]
 print(n_type,n_frames)
 nbins=100
 for i in range (0,n_type):
-    tmp=int(list(com_x)[i][-1])#convert dictionary key to index
     tmp2=list(self_rdf)[i]#convert dictionary key to index
     print(i,tmp,tmp2)
     dmin, dmax = 0.0,  box_array[0][0]/2
     rdf, edges = np.histogram([0], bins=nbins, range=(dmin, dmax))
     rdf = np.array([0]*nbins)
     dist = np.zeros(int(molecular_system["n_mol"][i]* (molecular_system["n_mol"][i] - 1) / 2,))
-    boxvolume=0
-    for j in range(0,n_frames):
-        coords=np.zeros((molecular_system["n_mol"][i],3))
-        for k in range (0,molecular_system["n_mol"][i]):
-            coords[k][0]=com_x[tmp][j][k][2]
-            coords[k][1]=com_y[tmp][j][k][2]
-            coords[k][2]=com_z[tmp][j][k][2]     
-        box_temp=[box_array[j][0],box_array[j][1],box_array[j][2], 90, 90 ,90]#mdanalysis requires unit cell angle        
-        self_distance_array(coords, box_temp,result=dist)
-        new_rdf, edges = np.histogram(dist, bins=nbins, range=(dmin, dmax))#histogram of current frame j
-        rdf += new_rdf #update total histogram
-        boxvolume+=(box_array[j][0]*box_array[1][0]*box_array[j][2])
-    self_rdf[tmp2]=rdf   
-    boxvolume /= n_frames  # average volume
-
-# Normalize RDF
-#print edges[1:], edges[:-1]
-    radii = 0.5 * (edges[1:] + edges[:-1])
-    vol = (4. / 3.) * np.pi * (np.power(edges[1:], 3) - np.power(edges[:-1], 3))
-# normalization to the average density n/boxvolume in the simulation
-    density = molecular_system["n_mol"][i]/ boxvolume
-    norm = density  * n_frames
-#n/2 because pairs  2-1and 1-2... are the same; only half the particles have to be considered
-    self_rdf[tmp2] = self_rdf[tmp2]/(norm*vol*molecular_system["n_mol"][i]/2)
+    self_rdf[tmp2],radii = RDF_utils.self_rdf(molecular_system,com_x,com_y,com_z,box_array,n_frames,i,rdf,edges,nbins,dmin,dmax,dist)
 
 for i in range(0,n_type):
     print(i)
@@ -112,48 +87,16 @@ cross_rdf = {f'rdf{i}': [] for i in range(n_pairs)}
 pair_cnt=0 #index to specifc pair
 nbins=100
 for i in range (0,n_type-1):
-    tmp=int(list(com_x)[i][-1])#convert dictionary key to index
+    #tmp=int(list(com_x)[i][-1])#convert dictionary key to index
     for j in range (i+1,n_type):    
         print(i,j,pair_cnt)
         tmp2=list(cross_rdf)[pair_cnt]#convert dictionary key to index
-        tmp3=int(list(com_x)[j][-1])#convert dictionary key to index
+    #    tmp3=int(list(com_x)[j][-1])#convert dictionary key to index
         dmin, dmax = 0.0,  box_array[0][0]/2
         rdf, edges = np.histogram([0], bins=nbins, range=(dmin, dmax))
         rdf = np.array([0]*nbins)
-        boxvolume=0
-        for k in range(0,n_frames):
-            coords_i=np.zeros((molecular_system["n_mol"][i],3))
-            coords_j=np.zeros((molecular_system["n_mol"][j],3))
-            for l in range (0,molecular_system["n_mol"][i]):
-                coords_i[l][0]=com_x[tmp][k][l][2]
-                coords_i[l][1]=com_y[tmp][k][l][2]
-                coords_i[l][2]=com_z[tmp][k][l][2]   
-            for m in range (0,molecular_system["n_mol"][j]):
-                coords_j[m][0]=com_x[tmp3][j][m][2]
-                coords_j[m][1]=com_y[tmp3][j][m][2]
-                coords_j[m][2]=com_z[tmp3][j][m][2] 
-
-            box_temp=[box_array[j][0],box_array[j][1],box_array[j][2], 90, 90 ,90]#mdanalysis requires unit cell angle        
-            dist=distance_array(coords_i,coords_j, box_temp)
-            new_rdf, edges = np.histogram(dist, bins=nbins, range=(dmin, dmax))#histogram of current frame k
-            rdf += new_rdf #update total histogram
-            boxvolume+=(box_array[j][0]*box_array[1][0]*box_array[j][2])
-        #print(rdf)    
-        cross_rdf[tmp2]=rdf
-        boxvolume /= n_frames  # average volume
-
-     # Normalize RDF
-        #print edges[1:], edges[:-1]
-        radii = 0.5 * (edges[1:] + edges[:-1])
-        vol = (4. / 3.) * np.pi * (np.power(edges[1:], 3) - np.power(edges[:-1], 3))
-# normalization to the average density n/boxvolume in the simulation
-        density = (molecular_system["n_mol"][j])/ boxvolume
-        norm = density  * n_frames
-#n/2 because pairs  2-1and 1-2... are the same; only half the particles have to be considered
-        cross_rdf[tmp2] = cross_rdf[tmp2]/(norm*vol*molecular_system["n_mol"][i])
+        cross_rdf[tmp2],radii = RDF_utils.cross_rdf(molecular_system,com_x,com_y,com_z,box_array,n_frames,i,j,rdf,edges,nbins,dmin,dmax)
         pair_cnt+=1
-
-
 
 for i in range(0,n_pairs):
     myfile = 'cross_rdf_MACE_1_%s' % i
