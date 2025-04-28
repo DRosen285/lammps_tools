@@ -6,9 +6,9 @@ from MDAnalysis.analysis.distances import *
 def self_rdf(molecular_system,x,y,z,box_array,n_frames,i,rdf,edges,nbins,dmin,dmax,dist):
 
 #expects x,y,z coordinates in the following format
-#x=np.array((n_frames,num_particles,3))
-#y=np.array((n_frames,num_particles,3))
-#z=np.array((n_frames,num_particles,3))
+#x=np.array((n_frames,num_particles,3)): 3 ->: 0: frame, 1: particle #, 2: coordinate
+#y=np.array((n_frames,num_particles,3)): 3 ->: 0: frame, 1: particle #, 2: coordinate
+#z=np.array((n_frames,num_particles,3)): 3 ->: 0: frame, 1: particle #, 2: coordinate
 #index i: loop over particle type i as in calc_RDF.py
 
     boxvolume=0
@@ -43,9 +43,9 @@ def self_rdf(molecular_system,x,y,z,box_array,n_frames,i,rdf,edges,nbins,dmin,dm
 def cross_rdf(molecular_system,x,y,z,box_array,n_frames,i,j,rdf,edges,nbins,dmin,dmax):
 
 #expects x,y,z coordinates in the following format
-#x=np.array((n_frames,num_particles,3))
-#y=np.array((n_frames,num_particles,3))
-#z=np.array((n_frames,num_particles,3))
+#x=np.array((n_frames,num_particles,3)): 3 ->: 0: frame, 1: particle #, 2: coordinate
+#y=np.array((n_frames,num_particles,3)): 3 ->: 0: frame, 1: particle #, 2: coordinate
+#z=np.array((n_frames,num_particles,3)): 3 ->: 0: frame, 1: particle #, 2: coordinate
 #index i: loop over particle type i in calc_RDF.py
 #index j: loop over 2nd particle type j in calc_RDF.py
     
