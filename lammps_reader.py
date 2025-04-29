@@ -66,20 +66,28 @@ def read_lammps_trajectory_fast(filename, fields_to_extract=None, stride=1):
 
 #convert read trajectory information to numpy arrays
 
-def convert_traj(frames,box_bounds,num_part,traj_size,x_clean,y_clean,z_clean,m_clean,box_array,t_array):
+def convert_traj(frames,box_bounds,num_part,traj_size,x_clean,y_clean,z_clean,m_clean,box_array,t_array,unwrapped=False):
     for i in range(0,traj_size):
         for j in range(0,num_part):
+            
+            if unwrapped:
+                x_clean[i][j][2]=frames[i][j]["xu"]#assign coordinate
+                y_clean[i][j][2]=frames[i][j]["yu"]#assign coordinate
+                z_clean[i][j][2]=frames[i][j]["zu"]#assign coordinate
+
+            else:
+                x_clean[i][j][2]=frames[i][j]["x"]#assign coordinate
+                y_clean[i][j][2]=frames[i][j]["y"]#assign coordinate
+                z_clean[i][j][2]=frames[i][j]["z"]#assign coordinate
+
             x_clean[i][j][0]=frames[i][j]["id"]#assign particle #
             x_clean[i][j][1]=frames[i][j]["type"]#assign particle type
-            x_clean[i][j][2]=frames[i][j]["x"]#assign coordinate
 
             y_clean[i][j][0]=frames[i][j]["id"]#assign particle #
             y_clean[i][j][1]=frames[i][j]["type"]#assign particle type
-            y_clean[i][j][2]=frames[i][j]["y"]#assign coordinate
 
             z_clean[i][j][0]=frames[i][j]["id"]#assign particle #
             z_clean[i][j][1]=frames[i][j]["type"]#assign particle type
-            z_clean[i][j][2]=frames[i][j]["z"]#assign coordinate
 
             m_clean[i][j][0]=frames[i][j]["id"]#assign particle #
             m_clean[i][j][1]=frames[i][j]["type"]#assign particle type
