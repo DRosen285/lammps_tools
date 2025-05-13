@@ -64,6 +64,37 @@ def read_lammps_trajectory_fast(filename, fields_to_extract=None, stride=1):
     return frames, np.array(timesteps), box_bounds
 
 
+def read_multiple_lammps_trajectories(filenames, fields_to_extract=None, stride=1):
+    """
+    Reads multiple LAMMPS trajectory files and combines the results.
+
+    Parameters:
+        filenames: list of str, paths to LAMMPS trajectory files
+        fields_to_extract: list of fields to keep (e.g. ['id', 'xu', 'yu', 'zu']), or None to keep all
+        stride: int, only every `stride`-th frame will be read from each file
+
+    Returns:
+        frames: list of NumPy structured arrays (1 per frame)
+        timesteps: list of ints
+        box_bounds: list of [(xlo,xhi), (ylo,yhi), (zlo,zhi)] per frame
+    """
+    all_frames = []
+    all_timesteps = []
+    all_box_bounds = []
+
+    for filename in filenames:
+        frames, timesteps, box_bounds = read_lammps_trajectory_fast(
+            filename, fields_to_extract=fields_to_extract, stride=stride
+        )
+        all_frames.extend(frames)
+        all_timesteps.extend(timesteps)
+        all_box_bounds.extend(box_bounds)
+
+    return all_frames, np.array(all_timesteps), all_box_bounds
+
+
+
+
 #convert read trajectory information to numpy arrays
 
 def convert_traj(frames,box_bounds,num_part,traj_size,x_clean,y_clean,z_clean,m_clean,box_array,t_array,unwrapped=False):
