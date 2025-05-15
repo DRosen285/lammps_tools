@@ -15,7 +15,7 @@ molecular_system = {
    "n_mol":[750,63,63], #number of molecules for each type 
    "atom_types_mol": [[1,2,3],[4,5],[6]],#atom type IDs for atoms in molecule 
    "md_time_step": 1, #time step for MD integrator  #unit ps
-   "md_out_steps": 1 # every 10th step is written out 
+   "md_out_steps": 1 # frequency at which MD trajectory is written 
 }
 
 
