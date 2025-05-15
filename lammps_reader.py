@@ -86,10 +86,11 @@ def read_multiple_lammps_trajectories(filenames, fields_to_extract=None, stride=
         frames, timesteps, box_bounds = read_lammps_trajectory_fast(
             filename, fields_to_extract=fields_to_extract, stride=stride
         )
+        print(filename,len(frames))
         all_frames.extend(frames)
         all_timesteps.extend(timesteps)
         all_box_bounds.extend(box_bounds)
-
+        
     return all_frames, np.array(all_timesteps), all_box_bounds
 
 
