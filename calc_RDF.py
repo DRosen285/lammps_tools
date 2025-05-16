@@ -47,7 +47,6 @@ com_x = {f'arr{i}': [] for i in range(molecular_system["n_molecule_types"])}
 com_y = {f'arr{i}': [] for i in range(molecular_system["n_molecule_types"])}
 com_z = {f'arr{i}': [] for i in range(molecular_system["n_molecule_types"])}
 cnt=0#loop over number of molecule types
-n_frames=molecular_system["n_frames"]
 keys = list(com_x.keys()) # Create a list of keys to iterate over
 for key in keys:
     tmp = int(key[-1])
