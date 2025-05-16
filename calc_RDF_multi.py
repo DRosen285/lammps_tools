@@ -43,7 +43,7 @@ num_part=int(molecular_system["n_part"])
 x_clean,y_clean,z_clean,m_clean,box_array,t_array=lammps_reader.convert_traj(frames,box_bounds,num_part,traj_size,x_clean,y_clean,z_clean,m_clean,box_array,t_array,unwrapped=True)
 
 #compute center of mass coordinates for all molecules
-n_frames=int(molecular_system["n_frames"]/stride)
+n_frames=molecular_system["n_frames"]
 #generate dictionary of lists depending on number of different molecule types
 com_x = {f'arr{i}': [] for i in range(molecular_system["n_molecule_types"])}
 com_y = {f'arr{i}': [] for i in range(molecular_system["n_molecule_types"])}
@@ -61,7 +61,7 @@ for key in keys:
 
 
 #Compute Radial distribution function
-
+n_frames=molecular_system["n_frames"]
 #RDFs between molecules of the same type
 self_rdf = {f'rdf{i}': [] for i in range(molecular_system["n_molecule_types"])}
 n_type=molecular_system["n_molecule_types"]
