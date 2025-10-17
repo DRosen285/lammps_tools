@@ -9,8 +9,8 @@ import lammpsio
 
 #load trajectory in pandas dataframe
 
-input_file ="final_frame_EQ_500K_NPT.xyz"
-df=pd.read_csv(input_file, header=7,delimiter=r"\s+",engine='c', iterator=True)
+input_file ="/home/drosenbe/run_EC_LiPF6/reactive_system/classical/prod_run/frame_8781.xyz"
+df=pd.read_csv(input_file, header=8,delimiter=r"\s+",engine='c', iterator=True)
 df2=df.get_chunk()
 df_modified = df2[df2.columns[:-2]]
 df_modified.columns = df2.columns[2:]
@@ -54,7 +54,7 @@ pos_array_swap
 def write_new_data(pos_array_swap,MACE=False):
     #swapping from classical to MACE  
     if MACE:
-       datafile = lammpsio.DataFile('/home/drosenbe/run_EC_LiPF6/swap_potentials/lammps_settings/mixture_MACE.data', atom_style='atomic')
+       datafile = lammpsio.DataFile('/home/drosenbe/run_EC_LiPF6/reactive_system/MACE_input/mixture_MACE.data', atom_style='atomic')
        snapshot= datafile.read()
        snapshot.position=pos_array_swap
        new_snapshot= lammpsio.Snapshot(
@@ -68,7 +68,7 @@ def write_new_data(pos_array_swap,MACE=False):
        new_snapshot.position=snapshot.position
        new_snapshot.typeid=snapshot.typeid
        new_snapshot.type_label=snapshot.type_label
-       lammpsio.DataFile.create("mixture_MACE_XXX.data",new_snapshot,atom_style='atomic')
+       lammpsio.DataFile.create("mixture_MACE_frame_8781.data",new_snapshot,atom_style='atomic')
 
     else: 
        #assumes trajectory comes from MACE
@@ -94,4 +94,4 @@ def write_new_data(pos_array_swap,MACE=False):
        lammpsio.DataFile.create('mixture_classical_after_500K_NPT.data',new_snapshot,atom_style='full')
 
 
-write_new_data(pos_array_swap,MACE=False)
+write_new_data(pos_array_swap,MACE=True)
