@@ -265,16 +265,25 @@ def smiles_from_fragment(frag_types):
 
 
 # --- Main analysis driver ---
+
 def analyze_dump(dumpfile, type_map, outdir="results", tol=0.5, min_lifetime_frames=10):
     """
-    Analyze LAMMPS trajectory and compute fragment lifetimes using
-    pair-specific bond cutoffs.
-    Only fragments present for >= min_lifetime_frames are kept.
+    Analyze LAMMPS trajectory and compute stable fragment lifetimes using
+    pair-specific bond cutoffs, with a progress bar.
     """
     fragments_seen = defaultdict(list)  # fragment tuple -> list of frame indices
 
+    # First, get total number of frames for tqdm (optional, for known-size trajectories)
+    # If unknown, leave total=None
+    total_frames = None
+    try:
+        with open(dumpfile, 'r') as fh:
+            total_frames = sum(1 for line in fh if line.strip() == "ITEM: TIMESTEP")
+    except:
+        total_frames = None  # fallback if file is huge or unknown
+
     print("Parsing frames from dump...")
-    for frame_idx, frame in enumerate(parse_lammps_dump(dumpfile)):
+    for frame_idx, frame in enumerate(tqdm(parse_lammps_dump(dumpfile), total=total_frames, desc="Frames")):
         # Get fragments using pair-specific cutoffs
         frags = cluster_fragments(frame, type_map, default_tol=tol)
 
@@ -284,7 +293,6 @@ def analyze_dump(dumpfile, type_map, outdir="results", tol=0.5, min_lifetime_fra
     # Compute maximum lifetime for each fragment
     stable_fragments = {}
     for frag, frames in fragments_seen.items():
-        # Sort frames to identify consecutive runs
         frames = sorted(frames)
         max_run = 0
         run = 1
@@ -306,6 +314,7 @@ def analyze_dump(dumpfile, type_map, outdir="results", tol=0.5, min_lifetime_fra
 
     print(f"Analysis complete. {len(stable_fragments)} stable fragments saved to {out_file}")
     return stable_fragments
+
 
 # --- Command-line interface ---
 if __name__ == "__main__":
