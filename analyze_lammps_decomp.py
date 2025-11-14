@@ -37,11 +37,28 @@ except Exception:
     print("Warning: RDKit not available. SMILES generation will be skipped.")
 
 #to compute adaptive bond cutoffs
+#Covalent radii in A: bond_length=covalent_radius(A)+covalent_radius(B)
 COVALENT_RADII = {
     "H": 0.31, "He": 0.28,
     "Li": 1.28, "Be": 0.96, "B": 0.84, "C": 0.76, "N": 0.71, "O": 0.66, "F": 0.57, "Ne": 0.58,
     "Na": 1.66, "Mg": 1.41, "Al": 1.21, "Si": 1.11, "P": 1.07, "S": 1.05, "Cl": 1.02,
     "K": 2.03, "Ca": 1.76, "Fe": 1.32, "Cu": 1.32, "Zn": 1.22, "Br": 1.2, "I": 1.39
+}
+
+# Covalent radii in Å
+COVALENT_RADII = {
+    "H": 0.31, "Li": 1.28, "C": 0.76, "N": 0.71, "O": 0.66, "F": 0.57, "P": 1.07
+}
+
+# Pair-specific tolerances (Å)
+PAIR_EXTRA = {
+    ("C", "H"): 0.4,
+    ("C", "C"): 0.4,
+    ("C", "O"): 0.5,
+    ("O", "H"): 0.4,
+    ("P", "F"): 0.5,
+    ("Li", "O"): 0.6,
+    ("Li", "F"): 0.6
 }
 
 @dataclass
@@ -165,39 +182,43 @@ from scipy.spatial import cKDTree
 import numpy as np
 import networkx as nx
 
-def detect_bonds_fast(frame, type_map, tol=0.4):
+
+def detect_bonds_fast(frame, type_map, default_tol=0.5):
     """
-    Detect bonds using covalent radii and neighbor search (KDTree).
-    Much faster than O(N^2) for large systems.
+    Detect bonds using covalent radii + pair-specific extra tolerance.
+    Uses KDTree for fast neighbor search.
     """
-    coords = frame.coords
-    types = frame.types
-    n = frame.natoms
+    coords = frame.coords  # Nx3 array
+    types = frame.types    # list of atom types (integers)
+    n = len(types)
+
     G = nx.Graph()
-    
-    # Add nodes
     for i in range(n):
         G.add_node(i, type=int(types[i]))
-    
-    # Compute max cutoff per frame (largest covalent radius pair + tol)
-    max_radii = max(COVALENT_RADII.get(type_map[str(t)], 0.8) for t in types)
-    max_cutoff = 2*max_radii + tol
-    
+
     # Build KDTree
     tree = cKDTree(coords)
-    
-    # Find pairs within max cutoff
-    pairs = tree.query_pairs(r=max_cutoff, output_type='set')
-    
-    # Filter pairs using actual element-specific radii
+
+    # Determine max possible cutoff
+    max_radii = max(COVALENT_RADII.get(type_map[str(t)], 0.8) for t in types)
+    max_cutoff = 2*max_radii + max(PAIR_EXTRA.values(), default=default_tol)
+
+    # Find all pairs within max_cutoff
+    pairs = tree.query_pairs(r=max_cutoff)
+
     for i, j in pairs:
         elem_i = type_map[str(types[i])]
         elem_j = type_map[str(types[j])]
+
+        # Determine pair-specific tolerance
+        tol = PAIR_EXTRA.get((elem_i, elem_j),
+                              PAIR_EXTRA.get((elem_j, elem_i), default_tol))
+
         cutoff = COVALENT_RADII.get(elem_i, 0.8) + COVALENT_RADII.get(elem_j, 0.8) + tol
         dist = np.linalg.norm(coords[i] - coords[j])
         if dist <= cutoff:
             G.add_edge(i, j)
-    
+
     return G
 
 #def cluster_fragments(frame, cutoff=1.6):
@@ -211,13 +232,20 @@ def detect_bonds_fast(frame, type_map, tol=0.4):
 #    return fragments
 
 
-def cluster_fragments(frame, type_map, tol=0.4):
-    G = detect_bonds_fast(frame, type_map=type_map, tol=tol)
+
+def cluster_fragments(frame, type_map, default_tol=0.5):
+    """
+    Cluster connected atoms into fragments using pair-specific cutoff.
+    Returns a list of fragments, each as a tuple of sorted element symbols.
+    """
+    G = detect_bonds_fast(frame, type_map, default_tol=default_tol)
     fragments = []
+
     for comp in nx.connected_components(G):
         atoms = sorted(list(comp))
-        frag_types = tuple(sorted(frame.types[atoms]))
+        frag_types = tuple(sorted([type_map[str(frame.types[i])] for i in atoms]))
         fragments.append(frag_types)
+
     return fragments
 
 def smiles_from_fragment(frag_types):
@@ -237,48 +265,47 @@ def smiles_from_fragment(frag_types):
 
 
 # --- Main analysis driver ---
-def analyze_dump(dumpfile, type_map, outdir="results", tol=1.6, min_lifetime_frames=2):
-    os.makedirs(outdir, exist_ok=True)
-    # Estimate number of frames
-    with open(dumpfile) as f:
-        nframes = sum(1 for line in f if line.startswith("ITEM: TIMESTEP"))
-    print(f"Found {nframes} frames. Beginning analysis...")
+def analyze_dump(dumpfile, type_map, outdir="results", tol=0.5, min_lifetime_frames=10):
+    """
+    Analyze LAMMPS trajectory and compute fragment lifetimes using
+    pair-specific bond cutoffs.
+    Only fragments present for >= min_lifetime_frames are kept.
+    """
+    fragments_seen = defaultdict(list)  # fragment tuple -> list of frame indices
 
-    species_counts = []
-    fragments_seen = {}
-    events = []
+    print("Parsing frames from dump...")
+    for frame_idx, frame in enumerate(parse_lammps_dump(dumpfile)):
+        # Get fragments using pair-specific cutoffs
+        frags = cluster_fragments(frame, type_map, default_tol=tol)
 
-    pbar = tqdm(total=nframes, desc="Parsing frames", dynamic_ncols=True)
-    for i, fr in enumerate(parse_lammps_dump(dumpfile)):
-        #frags = cluster_fragments(fr, cutoff=tol)
-        frags = cluster_fragments(fr, type_map=type_map, tol=tol)
-        frame_count = defaultdict(int)
         for frag in frags:
-            frame_count[frag] += 1
-            if frag not in fragments_seen:
-                fragments_seen[frag] = {
-                    "composition": {type_map.get(str(t), str(t)): frag.count(t) for t in set(frag)},
-                    "first_seen": fr.timestep,
-                    "smiles": smiles_from_fragment(frag),
-                }
+            fragments_seen[frag].append(frame_idx)
 
-        species_counts.append({"timestep": fr.timestep, **frame_count})
+    # Compute maximum lifetime for each fragment
+    stable_fragments = {}
+    for frag, frames in fragments_seen.items():
+        # Sort frames to identify consecutive runs
+        frames = sorted(frames)
+        max_run = 0
+        run = 1
+        for i in range(1, len(frames)):
+            if frames[i] == frames[i-1] + 1:
+                run += 1
+            else:
+                max_run = max(max_run, run)
+                run = 1
+        max_run = max(max_run, run)
 
-        pbar.set_description(f"Frame {i+1}/{nframes} (t={fr.timestep}, frags={len(frags)})")
-        pbar.update(1)
+        if max_run >= min_lifetime_frames:
+            stable_fragments[frag] = max_run
 
-    pbar.close()
+    # Save results to JSON
+    out_file = f"{outdir}/stable_fragments.json"
+    with open(out_file, "w") as f:
+        json.dump({",".join(frag): life for frag, life in stable_fragments.items()}, f, indent=2)
 
-    # Convert species count time series to DataFrame
-    df = pd.DataFrame(species_counts).fillna(0)
-    df.to_csv(os.path.join(outdir, "species_timeseries.csv"), index=False)
-
-    # Write fragments summary
-    # Convert tuple keys to strings for JSON
-    json_fragments = {str(k): v for k, v in fragments_seen.items()}
-
-    with open(os.path.join(outdir, "fragments.json"), "w") as f:
-         json.dump(json_fragments, f, indent=2)
+    print(f"Analysis complete. {len(stable_fragments)} stable fragments saved to {out_file}")
+    return stable_fragments
 
 # --- Command-line interface ---
 if __name__ == "__main__":
